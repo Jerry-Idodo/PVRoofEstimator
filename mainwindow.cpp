@@ -1,13 +1,55 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
-#include "pvroof.h"
 #include <QMessageBox>
+#include <QDebug>
+#include <QFileDialog>
+#include <QStandardPaths>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    db_name = "pvmodule.db";
+    PVSQLite database(db_name);
+    database.create_table();
+
+    if (database.fetch_records() == SQLITE_OK) {
+        qDebug() << "Database Fetched";
+
+        for (const auto& moduleData : database.Modules) {
+            int key = std::stoi(moduleData[0]);
+            std::vector<QString> data;
+
+            for (const auto& value : moduleData) {
+                data.push_back(QString::fromStdString(value));
+            }
+
+            ModuleMap[key] = data;
+        }
+    }
+    qDebug() << "Database Mapped";
+
     ui->setupUi(this);
+    qDebug() << "UI setup";
+
+    if (!ModuleMap.empty()) {
+        int i = 1;
+        ui->ModuleLineName->setText(ModuleMap.begin()->second[1]);
+        ui->ModuleLineMan->setText(ModuleMap.begin()->second[2]);
+        ui->ModuleLineLength->setText(ModuleMap.begin()->second[3]);
+        ui->ModuleLineWidth->setText(ModuleMap.begin()->second[4]);
+        ui->ModuleLineRating->setText(ModuleMap.begin()->second[5]);
+        qDebug() << "Module Mapped \n" << ModuleMap;
+
+        for (const auto& [key, value] : ModuleMap) {
+            qDebug() << value[1];
+            ui->ModuleComboBox->insertItem(i, value[1]);
+            qDebug() << key << ": " << value;
+            i++;
+        }
+    }
+    qDebug() << "ui constructor finished";
+
 }
 
 MainWindow::~MainWindow()
@@ -21,6 +63,36 @@ void show_warning(const QString& text)
     msgBox.setText(text);
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.exec();
+}
+
+QString pick_file()
+{
+    QString documentsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    QString filename = QFileDialog::getOpenFileName(nullptr, "Open File",
+                                                    documentsPath,
+                                                    "db (*.db)");
+    return filename;
+}
+
+void MainWindow::load_modules_from_database(const PVSQLite& db)
+{
+    for (const auto& moduleData : db.Modules) {
+        int key = std::stoi(moduleData[0]);
+        std::vector<QString> data;
+        for (const auto& value : moduleData) {
+            data.push_back(QString::fromStdString(value));
+        }
+        ModuleMap[key] = data;
+    }
+}
+
+void MainWindow::populate_ModuleComboBox()
+{
+    int i = 1;
+    for (const auto& [key, value] : ModuleMap) {
+        ui->ModuleComboBox->insertItem(i, value[1]);
+        i++;
+    }
 }
 
 bool MainWindow::check_numeric_values(PVRoof& Array)
@@ -209,5 +281,81 @@ void MainWindow::on_ResetButton_clicked()
     ui->LandscapeModuleLabel->setText("0");
     ui->LandscapeLayoutLabel->setText("0 rows by 0 columns");
     ui->LandscapeUtliizationLabel->setText("0%");
+}
+
+
+void MainWindow::on_ModuleSaveButton_clicked()
+{
+    PVSQLite db(db_name);
+
+    db.ModuleData.push_back(ui->ModuleLineName->text().toStdString());
+    db.ModuleData.push_back(ui->ModuleLineMan->text().toStdString());
+    db.ModuleData.push_back(ui->ModuleLineLength->text().toStdString());
+    db.ModuleData.push_back(ui->ModuleLineWidth->text().toStdString());
+    db.ModuleData.push_back(ui->ModuleLineRating->text().toStdString());
+
+    db.insert_record();
+    if (db.rc != SQLITE_OK)
+        show_warning(QString::fromStdString(db.Msg));
+
+    db.ModuleData.clear();
+}
+
+
+void MainWindow::on_ModuleComboBox_currentIndexChanged(int index)
+{
+    return;
+}
+
+
+void MainWindow::on_ModuleComboBox_textActivated(const QString &arg1)
+{
+    int i = ui->ModuleComboBox->currentIndex() + 1;
+
+    ui->ModuleLineName->setText(ModuleMap[i][1]);
+    ui->ModuleLineMan->setText(ModuleMap[i][2]);
+    ui->ModuleLineLength->setText(ModuleMap[i][3]);
+    ui->ModuleLineWidth->setText(ModuleMap[i][4]);
+    ui->ModuleLineRating->setText(ModuleMap[i][5]);
+}
+
+
+void MainWindow::on_ModuleLoadButton_clicked()
+{
+    // Get database filename
+    std::string temp = pick_file().toStdString();
+    if (temp.empty())
+        return;
+
+    // Clear existing data
+    ui->ModuleComboBox->clear();
+    ModuleMap.clear();
+    db_name = temp;
+
+    // Create or open database
+    PVSQLite db(db_name);
+    db.create_table();
+
+    // Load modules from database
+    if (db.fetch_records() == SQLITE_OK) {
+        qDebug() << "Database Fetched";
+        load_modules_from_database(db);
+    } else {
+        show_warning(QString::fromStdString(db.Msg));
+    }
+
+    // Update UI with loaded modules
+    if (!ModuleMap.empty()) {
+        int i = 1;
+
+        ui->ModuleLineName->setText(ModuleMap.begin()->second[1]);
+        ui->ModuleLineMan->setText(ModuleMap.begin()->second[2]);
+        ui->ModuleLineLength->setText(ModuleMap.begin()->second[3]);
+        ui->ModuleLineWidth->setText(ModuleMap.begin()->second[4]);
+        ui->ModuleLineRating->setText(ModuleMap.begin()->second[5]);
+        qDebug() << "Module Mapped \n" << ModuleMap;
+
+        populate_ModuleComboBox();
+    }
 }
 
