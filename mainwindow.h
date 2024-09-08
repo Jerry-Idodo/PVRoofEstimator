@@ -2,8 +2,10 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QGraphicsScene>
 #include "pvroof.h"
 #include "pvsqlite.h"
+#include "pvdrawing.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -37,9 +39,16 @@ private slots:
 
     void on_ModuleLoadButton_clicked();
 
+    void on_PortraitButton_clicked();
+
+    void on_LandscapeButton_clicked();
+
 private:
     Ui::MainWindow *ui;
     std::string db_name;
     std::map<int, std::vector<QString>> ModuleMap;
+    PVDrawing Drawing;
+        qreal scale;
+
 };
 #endif // MAINWINDOW_H

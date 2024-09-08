@@ -8,6 +8,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , scale(1)
 {
     db_name = "pvmodule.db";
     PVSQLite database(db_name);
@@ -48,8 +49,8 @@ MainWindow::MainWindow(QWidget *parent)
             i++;
         }
     }
-    qDebug() << "ui constructor finished";
 
+    qDebug() << "ui constructor finished";
 }
 
 MainWindow::~MainWindow()
@@ -256,6 +257,9 @@ void MainWindow::on_CalculateButton_clicked()
     int max_array = PVArray.calculate_pv_layout();
 
     fill_result(PVArray);
+
+    Drawing.draw(PVArray);
+    on_PortraitButton_clicked();
 }
 
 void MainWindow::on_ResetButton_clicked()
@@ -281,6 +285,7 @@ void MainWindow::on_ResetButton_clicked()
     ui->LandscapeModuleLabel->setText("0");
     ui->LandscapeLayoutLabel->setText("0 rows by 0 columns");
     ui->LandscapeUtliizationLabel->setText("0%");
+    Drawing.clear();
 }
 
 
@@ -357,5 +362,27 @@ void MainWindow::on_ModuleLoadButton_clicked()
 
         populate_ModuleComboBox();
     }
+}
+
+
+void MainWindow::on_PortraitButton_clicked()
+{
+    scale = Drawing.scale;
+
+    ui->ResultGraphicsView->resetTransform();               // Resets the Scale
+    ui->ResultGraphicsView->setScene(Drawing.portrait);
+    ui->ResultGraphicsView->scale(scale, scale);
+    ui->ResultGraphicsView->show();
+}
+
+
+void MainWindow::on_LandscapeButton_clicked()
+{
+    scale = Drawing.scale;
+
+    ui->ResultGraphicsView->resetTransform();               // Resets the Scale
+    ui->ResultGraphicsView->setScene(Drawing.landscape);
+    ui->ResultGraphicsView->scale(scale, scale);
+    ui->ResultGraphicsView->show();
 }
 
